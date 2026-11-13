@@ -1,0 +1,56 @@
+name: OWL Package Distribution Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'pyproject.toml'
+      - 'README.md'
+      - 'owl/**'
+      - '.github/workflows/package-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Build wheel and sdist (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install build tooling only (not OWL runtime dependencies)
+        # Twine 6.2 rejects Metadata-Version 2.5 from newer Hatchling builds.
+        # Pin an established 2.4-emitting backend until the validator supports 2.5.
+        run: python -m pip install "build>=1.2,<3" "hatchling==1.27.0" "twine>=5,<7"
+      - name: Build wheel and source distribution
+        run: python -m build --no-isolation
+      - name: Verify distribution metadata
+        run: python -m twine check dist/*
+      - name: Verify archive contents without importing optional providers
+        shell: python
+        run: |
+          import glob
+          import tarfile
+          import zipfile
+          files = glob.glob("dist/*")
+          wheels = [x for x in files if x.endswith(".whl")]
+          sdists = [x for x in files if x.endswith(".tar.gz")]
+          assert len(wheels) == len(sdists) == 1, files
+          with zipfile.ZipFile(wheels[0]) as wheel:
+              paths = wheel.namelist()
+              assert "owl/utils/safe_archive.py" in paths, "wheel omitted safe archive helper"
+              assert any(x.endswith(".dist-info/METADATA") for x in paths)
+          with tarfile.open(sdists[0], "r:gz") as source:
+              names = source.getnames()
+              assert any(x.endswith("/owl/utils/safe_archive.py") for x in names)
+              assert any(x.endswith("/pyproject.toml") for x in names)
+          print("Wheel, sdist, and package metadata verified")
