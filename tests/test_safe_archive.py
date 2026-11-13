@@ -6,7 +6,13 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from owl.utils.safe_archive import safe_extract_zip
+import importlib.util
+
+MODULE_PATH = Path(__file__).resolve().parents[1] / "owl" / "utils" / "safe_archive.py"
+spec = importlib.util.spec_from_file_location("safe_archive_test_module", MODULE_PATH)
+archive_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(archive_module)
+safe_extract_zip = archive_module.safe_extract_zip
 
 
 class ArchiveSafetyTests(unittest.TestCase):
@@ -52,7 +58,7 @@ class ArchiveSafetyTests(unittest.TestCase):
 
     def test_zip_bomb_limit_rejected(self):
         self.build([("payload.bin", b"X" * 64)])
-        with patch("owl.utils.safe_archive.MAX_BYTES", 16):
+        with patch.object(archive_module, "MAX_BYTES", 16):
             with self.assertRaisesRegex(ValueError, "size exceeds"):
                 safe_extract_zip(str(self.archive), str(self.cache))
         self.assertFalse((self.cache / "sample").exists())
