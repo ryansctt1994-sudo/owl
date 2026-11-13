@@ -22,7 +22,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Compile OWL and examples (no dependency install)
-        run: python -m compileall -q owl examples community_usecase
+        run: python -m compileall -q owl examples community_usecase tests
+      - name: Archive extraction regression suite (no model or cloud credentials)
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
       - name: Validate TOML package metadata and interpreter support
         run: |
           python - <<'PY'

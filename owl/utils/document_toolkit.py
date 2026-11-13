@@ -26,7 +26,7 @@ import json
 from typing import List, Optional, Tuple, Literal
 from urllib.parse import urlparse
 import os
-import subprocess
+from .safe_archive import safe_extract_zip
 import xmltodict
 import nest_asyncio
 import traceback
@@ -292,24 +292,8 @@ class DocumentProcessingToolkit(BaseToolkit):
         return time.strftime("%m%d%H%M")
 
     def _unzip_file(self, zip_path: str) -> List[str]:
-        if not zip_path.endswith(".zip"):
-            raise ValueError("Only .zip files are supported")
-
-        zip_name = os.path.splitext(os.path.basename(zip_path))[0]
-        extract_path = os.path.join(self.cache_dir, zip_name)
-        os.makedirs(extract_path, exist_ok=True)
-
-        try:
-            subprocess.run(["unzip", "-o", zip_path, "-d", extract_path], check=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"Failed to unzip file: {e}")
-
-        extracted_files = []
-        for root, _, files in os.walk(extract_path):
-            for file in files:
-                extracted_files.append(os.path.join(root, file))
-
-        return extracted_files
+        """Extract a local archive with path and decompression-size guardrails."""
+        return safe_extract_zip(zip_path, self.cache_dir)
 
     def get_tools(self) -> List[FunctionTool]:
         r"""Returns a list of FunctionTool objects representing the functions in the toolkit.
