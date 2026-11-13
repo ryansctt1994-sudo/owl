@@ -50,6 +50,16 @@ def safe_extract_zip(zip_path: str, cache_dir: str) -> list[str]:
                     raise ValueError("ZIP uncompressed size exceeds limit")
             approved.append((info, target))
 
+        # A file entry cannot also be an ancestor of another member.
+        # Reject before creating the destination, irrespective of ZIP order.
+        file_targets = {target for info, target in approved if not info.is_dir()}
+        for _info, target in approved:
+            for parent in target.parents:
+                if parent == base:
+                    break
+                if parent in file_targets:
+                    raise ValueError(f"ZIP file/directory path conflict: {target}")
+
         destination.mkdir(parents=True, exist_ok=True)
         extracted = []
         for info, target in approved:
