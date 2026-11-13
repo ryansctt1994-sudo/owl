@@ -63,6 +63,19 @@ class ArchiveSafetyTests(unittest.TestCase):
                 safe_extract_zip(str(self.archive), str(self.cache))
         self.assertFalse((self.cache / "sample").exists())
 
+    def test_file_directory_prefix_conflict_is_rejected_before_writes(self):
+        for members in (
+            [("a", b"file"), ("a/b.txt", b"child")],
+            [("a/b.txt", b"child"), ("a", b"file")],
+            [("a", b"file"), ("a/b/", b"")],
+        ):
+            with self.subTest(members=members):
+                self.build(members)
+                with self.assertRaisesRegex(ValueError, "path conflict"):
+                    safe_extract_zip(str(self.archive), str(self.cache))
+                self.assertFalse((self.cache / "sample").exists(),
+                                 "conflicting archive must not partially extract")
+
     def test_existing_file_is_never_overwritten(self):
         self.build([("note.txt", b"new")])
         dest = self.cache / "sample"
