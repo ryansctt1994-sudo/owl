@@ -1,0 +1,35 @@
+name: OWL Offline Python Integrity
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    name: Python source / metadata validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Compile OWL and examples (no dependency install)
+        run: python -m compileall -q owl examples community_usecase
+      - name: Validate TOML package metadata and interpreter support
+        run: |
+          python - <<'PY'
+          import pathlib, sys, tomllib
+          meta = tomllib.loads(pathlib.Path('pyproject.toml').read_text(encoding='utf-8'))
+          project = meta['project']
+          assert project['name'] == 'owl'
+          assert 'requires-python' in project
+          print(f"OWL metadata parsed on Python {sys.version_info.major}.{sys.version_info.minor}")
+          PY
