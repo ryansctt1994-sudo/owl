@@ -28,7 +28,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install build tooling only (not OWL runtime dependencies)
-        run: python -m pip install "build>=1.2,<3" "hatchling>=1.25,<2" "twine>=5,<7"
+        # Twine 6.2 rejects Metadata-Version 2.5 from newer Hatchling builds.
+        # Pin an established 2.4-emitting backend until the validator supports 2.5.
+        run: python -m pip install "build>=1.2,<3" "hatchling==1.27.0" "twine>=5,<7"
       - name: Build wheel and source distribution
         run: python -m build --no-isolation
       - name: Verify distribution metadata
